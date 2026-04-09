@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { trackEvent } from "../lib/analytics";
 import type {
   CreateSessionAck,
   GameErrorEvent,
@@ -94,6 +95,11 @@ export function useGameSocket(): GameSocketState {
       }
       setMySymbol(ack.playerSymbol);
       setStatusMessage(`Sesja ${ack.sessionId} gotowa.`);
+      trackEvent("start_game", {
+        mode,
+        session_id: ack.sessionId,
+        player_symbol: ack.playerSymbol,
+      });
     });
   };
 
@@ -109,6 +115,11 @@ export function useGameSocket(): GameSocketState {
       }
       setMySymbol(ack.playerSymbol);
       setStatusMessage(`Dołączono do sesji ${ack.sessionId}.`);
+      trackEvent("join_game", {
+        mode: "online",
+        session_id: ack.sessionId,
+        player_symbol: ack.playerSymbol,
+      });
       }
     );
   };

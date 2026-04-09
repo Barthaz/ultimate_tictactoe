@@ -15,6 +15,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const logoUrl = `${import.meta.env.BASE_URL}assets/logo.png`;
 
   const handleStart = () => {
     props.onCreateSession();
@@ -29,12 +30,12 @@ export function HomeScreen(props: HomeScreenProps) {
   return (
     <section className="screen home-screen">
       <header className="hero-card">
-        <img src="/assets/logo.png" alt="Ultimate Tic Tac Toe logo" className="hero-logo" />
-        <h1>Ultimate Tic Tac Toe</h1>
+        <img src={logoUrl} alt="Ultimate Tic Tac Toe logo" className="hero-logo" />
+        <h1 className="hero-title">Ultimate Tic Tac Toe</h1>
         <p>
-          Strategiczna odmiana klasycznego kółko i krzyżyk: grasz na dziewięciu
-          małych planszach, a zwycięstwo daje ułożenie trzech wygranych plansz w
-          linii na planszy głównej.
+          Wejdź do świata strategicznej wersji kółko i krzyżyk, w której każdy ruch
+          ma znaczenie. Przejmuj małe plansze, planuj kilka tur naprzód i buduj
+          zwycięską linię na planszy głównej.
         </p>
         <div className="hero-actions">
           <button className="primary" onClick={() => setStartOpen(true)}>

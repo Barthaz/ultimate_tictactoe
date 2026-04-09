@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { trackEvent } from "./lib/analytics";
 import { useGameSocket } from "./hooks/useGameSocket";
 import { GameScreen } from "./screens/GameScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -10,6 +11,7 @@ type Screen = "home" | "game" | "result";
 function App() {
   const game = useGameSocket();
   const [screen, setScreen] = useState<Screen>("home");
+  const lastTrackedFinishedSession = useRef<string | null>(null);
 
   useEffect(() => {
     if (!game.session) {
@@ -23,6 +25,30 @@ function App() {
     setScreen("game");
   }, [game.session]);
 
+  useEffect(() => {
+    if (!game.session || game.session.game.status !== "finished") {
+      return;
+    }
+    if (lastTrackedFinishedSession.current === game.session.id) {
+      return;
+    }
+
+    const winner = game.session.game.winner;
+    const outcome =
+      winner === "D" || winner === null ? "draw" : winner === game.mySymbol ? "win" : "lose";
+
+    trackEvent("finish_game", {
+      mode: game.session.mode,
+      session_id: game.session.id,
+      winner: winner ?? "none",
+      my_symbol: game.mySymbol,
+      outcome,
+      moves: game.session.game.moveCount,
+    });
+
+    lastTrackedFinishedSession.current = game.session.id;
+  }, [game.mySymbol, game.session]);
+
   const handleCreateSession = () => {
     game.createSession();
   };
@@ -33,6 +59,7 @@ function App() {
 
   const handleBackToMenu = () => {
     game.resetClientState();
+    lastTrackedFinishedSession.current = null;
     setScreen("home");
   };
 
