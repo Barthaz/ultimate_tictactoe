@@ -12,6 +12,12 @@ const WIN_LINES = [
   [2, 4, 6],
 ] as const;
 const INF = 1_000_000;
+const SEARCH_TIME_LIMIT_MS = 1200;
+
+type TTEntry = {
+  depth: number;
+  score: number;
+};
 
 export function chooseAiMove(state: GameState): Move {
   const legalMoves = getLegalMoves(state);
@@ -36,15 +42,40 @@ export function chooseAiMove(state: GameState): Move {
   // 3) Minimax z odcinaniem alfa-beta na ograniczonym drzewie.
   const depth = chooseSearchDepth(legalMoves.length, state.moveCount);
   const orderedMoves = orderMoves(state, legalMoves, aiPlayer);
+  const tt = new Map<string, TTEntry>();
+  const deadline = Date.now() + SEARCH_TIME_LIMIT_MS;
 
+  let bestMove = orderedMoves[0];
+  // Iteracyjne pogłębianie: zwraca najlepszy stabilny ruch w limicie czasu.
+  for (let currentDepth = 2; currentDepth <= depth; currentDepth += 1) {
+    if (Date.now() >= deadline) break;
+    const result = searchAtDepth(state, orderedMoves, aiPlayer, currentDepth, tt, deadline);
+    if (result.timedOut) break;
+    bestMove = result.bestMove;
+  }
+
+  return bestMove;
+}
+
+function searchAtDepth(
+  state: GameState,
+  orderedMoves: Move[],
+  aiPlayer: PlayerSymbol,
+  depth: number,
+  tt: Map<string, TTEntry>,
+  deadline: number
+): { bestMove: Move; timedOut: boolean } {
   let bestScore = -INF;
   let bestMove = orderedMoves[0];
   let alpha = -INF;
   const beta = INF;
 
   for (const move of orderedMoves) {
+    if (Date.now() >= deadline) {
+      return { bestMove, timedOut: true };
+    }
     const nextState = applyMove(state, move);
-    const score = minimax(nextState, depth - 1, alpha, beta, false, aiPlayer);
+    const score = minimax(nextState, depth - 1, alpha, beta, false, aiPlayer, tt, deadline);
     if (score > bestScore) {
       bestScore = score;
       bestMove = move;
@@ -52,7 +83,7 @@ export function chooseAiMove(state: GameState): Move {
     alpha = Math.max(alpha, bestScore);
   }
 
-  return bestMove;
+  return { bestMove, timedOut: false };
 }
 
 function minimax(
@@ -61,39 +92,58 @@ function minimax(
   alpha: number,
   beta: number,
   maximizing: boolean,
-  aiPlayer: PlayerSymbol
+  aiPlayer: PlayerSymbol,
+  tt: Map<string, TTEntry>,
+  deadline: number
 ): number {
-  if (state.status === "finished" || depth === 0) {
+  if (Date.now() >= deadline) {
     return evaluateState(state, aiPlayer);
+  }
+
+  const key = getStateKey(state);
+  const cached = tt.get(key);
+  if (cached && cached.depth >= depth) {
+    return cached.score;
+  }
+
+  if (state.status === "finished" || depth === 0) {
+    const evalScore = evaluateState(state, aiPlayer);
+    tt.set(key, { depth, score: evalScore });
+    return evalScore;
   }
 
   const legalMoves = getLegalMoves(state);
   if (legalMoves.length === 0) {
-    return evaluateState(state, aiPlayer);
+    const evalScore = evaluateState(state, aiPlayer);
+    tt.set(key, { depth, score: evalScore });
+    return evalScore;
   }
 
   const orderedMoves = orderMoves(state, legalMoves, aiPlayer);
-  // Ograniczenie gałęzi znacząco przyspiesza, a po orderingu daje dobre ruchy.
-  const limitedMoves = orderedMoves.slice(0, 10);
+  // Szersze drzewo dla mocniejszego AI, ale nadal kontrolowane czasem.
+  const branchLimit = depth >= 4 ? 16 : 22;
+  const limitedMoves = orderedMoves.slice(0, branchLimit);
 
   if (maximizing) {
     let best = -INF;
     for (const move of limitedMoves) {
       const next = applyMove(state, move);
-      best = Math.max(best, minimax(next, depth - 1, alpha, beta, false, aiPlayer));
+      best = Math.max(best, minimax(next, depth - 1, alpha, beta, false, aiPlayer, tt, deadline));
       alpha = Math.max(alpha, best);
       if (beta <= alpha) break;
     }
+    tt.set(key, { depth, score: best });
     return best;
   }
 
   let best = INF;
   for (const move of limitedMoves) {
     const next = applyMove(state, move);
-    best = Math.min(best, minimax(next, depth - 1, alpha, beta, true, aiPlayer));
+    best = Math.min(best, minimax(next, depth - 1, alpha, beta, true, aiPlayer, tt, deadline));
     beta = Math.min(beta, best);
     if (beta <= alpha) break;
   }
+  tt.set(key, { depth, score: best });
   return best;
 }
 
@@ -222,12 +272,20 @@ function isImmediateGameWin(state: GameState, move: Move, player: PlayerSymbol):
 }
 
 function chooseSearchDepth(legalMovesCount: number, moveCount: number): number {
-  if (moveCount > 55) return 5;
-  if (legalMovesCount <= 6) return 5;
-  if (legalMovesCount <= 12) return 4;
-  return 3;
+  if (moveCount > 58) return 7;
+  if (moveCount > 44) return 6;
+  if (legalMovesCount <= 5) return 7;
+  if (legalMovesCount <= 10) return 6;
+  if (legalMovesCount <= 16) return 5;
+  return 4;
 }
 
 function getOpponent(player: PlayerSymbol): PlayerSymbol {
   return player === "X" ? "O" : "X";
+}
+
+function getStateKey(state: GameState): string {
+  const winners = state.smallBoardWinners.map((v) => v ?? "_").join("");
+  const boards = state.boards.map((b) => b.map((c) => c ?? "_").join("")).join("|");
+  return `${state.currentPlayer}|${state.activeBoard ?? "_"}|${winners}|${boards}`;
 }
