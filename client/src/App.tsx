@@ -39,6 +39,7 @@ function App() {
 
     trackEvent("finish_game", {
       mode: game.session.mode,
+      training_difficulty: game.session.trainingDifficulty ?? undefined,
       session_id: game.session.id,
       winner: winner ?? "none",
       my_symbol: game.mySymbol,
@@ -83,7 +84,9 @@ function App() {
         <HomeScreen
           mode={game.mode}
           joinCode={game.joinCode}
+          trainingDifficulty={game.trainingDifficulty}
           onModeChange={game.setMode}
+          onTrainingDifficultyChange={game.setTrainingDifficulty}
           onJoinCodeChange={game.setJoinCode}
           onCreateSession={handleCreateSession}
           onJoinSession={handleJoinSession}

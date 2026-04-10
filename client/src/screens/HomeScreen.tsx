@@ -1,11 +1,13 @@
 import { useState } from "react";
-import type { GameMode } from "@uttt/shared";
+import type { GameMode, TrainingDifficulty } from "@uttt/shared";
 import { Modal } from "../components/Modal";
 
 type HomeScreenProps = {
   mode: GameMode;
   joinCode: string;
+  trainingDifficulty: TrainingDifficulty;
   onModeChange: (mode: GameMode) => void;
+  onTrainingDifficultyChange: (difficulty: TrainingDifficulty) => void;
   onJoinCodeChange: (code: string) => void;
   onCreateSession: () => void;
   onJoinSession: () => void;
@@ -60,7 +62,7 @@ export function HomeScreen(props: HomeScreenProps) {
         <article className="feature-card">
           <h3>Rywalizacja</h3>
           <p>
-            Zagraj lokalnie, z AI albo online - ten sam zestaw zasad i szybkie
+            Zagraj lokalnie, w treningu albo online - ten sam zestaw zasad i szybkie
             tempo rozgrywki.
           </p>
         </article>
@@ -106,10 +108,24 @@ export function HomeScreen(props: HomeScreenProps) {
             <option value="local">
               Lokalna (2 graczy na jednym urządzeniu)
             </option>
-            <option value="ai">Kontra AI</option>
+            <option value="training">Trening (kontra AI)</option>
             <option value="online">Online (utwórz kod sesji)</option>
           </select>
         </label>
+        {props.mode === "training" ? (
+          <label className="field">
+            Poziom trudności treningu:
+            <select
+              value={props.trainingDifficulty}
+              onChange={(e) =>
+                props.onTrainingDifficultyChange(e.target.value as TrainingDifficulty)
+              }
+            >
+              <option value="normal">Normalny</option>
+              <option value="hardcore">Hardcore</option>
+            </select>
+          </label>
+        ) : null}
         <div className="modal-actions">
           <button className="primary" onClick={handleStart}>
             Rozpocznij

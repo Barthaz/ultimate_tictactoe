@@ -11,6 +11,7 @@ import {
   PlayMovePayload,
   PROTOCOL_VERSION,
   SOCKET_EVENTS,
+  TrainingDifficulty,
   ServerInfoEvent,
   SessionJoinedEvent,
   SessionStateEvent,
@@ -48,16 +49,26 @@ io.on("connection", (socket) => {
 
   socket.on(
     SOCKET_EVENTS.SESSION_CREATE,
-    ({ mode }: CreateSessionPayload, callback: (ack: CreateSessionAck) => void) => {
+    ({ mode, trainingDifficulty }: CreateSessionPayload, callback: (ack: CreateSessionAck) => void) => {
     try {
-      if (!["local", "ai", "online"].includes(mode)) {
+      if (!["local", "training", "online"].includes(mode)) {
         throw new Error("Niepoprawny tryb gry.");
+      }
+      if (
+        mode === "training" &&
+        trainingDifficulty &&
+        !["normal", "hardcore"].includes(trainingDifficulty)
+      ) {
+        throw new Error("Niepoprawny poziom treningu.");
       }
 
       const sessionId = generateSessionId();
+      const resolvedDifficulty: TrainingDifficulty | null =
+        mode === "training" ? (trainingDifficulty ?? "normal") : null;
       const session: GameSession = {
         id: sessionId,
         mode,
+        trainingDifficulty: resolvedDifficulty,
         game: createInitialGameState(),
         players: {
           X: socket.id,
@@ -117,13 +128,22 @@ io.on("connection", (socket) => {
         session.game = applyMove(session.game, { boardIndex, cellIndex, player });
         broadcastState(sessionId);
 
-        if (session.mode === "ai" && session.game.status === "playing" && session.game.currentPlayer === "O") {
+        if (
+          session.mode === "training" &&
+          session.game.status === "playing" &&
+          session.game.currentPlayer === "O"
+        ) {
           setTimeout(() => {
             const latest = sessions.get(sessionId);
-            if (!latest || latest.game.status !== "playing" || latest.game.currentPlayer !== "O") {
+            if (
+              !latest ||
+              latest.game.status !== "playing" ||
+              latest.game.currentPlayer !== "O" ||
+              latest.mode !== "training"
+            ) {
               return;
             }
-            const aiMove = chooseAiMove(latest.game);
+            const aiMove = chooseAiMove(latest.game, latest.trainingDifficulty ?? "normal");
             latest.game = applyMove(latest.game, aiMove);
             broadcastState(sessionId);
           }, 350);

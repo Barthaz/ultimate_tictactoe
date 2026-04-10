@@ -1,5 +1,6 @@
 import { applyMove, getLegalMoves } from "./engine";
 import { GameState, Move, PlayerSymbol, SmallBoardWinner } from "./types";
+import { TrainingDifficulty } from "@uttt/shared";
 
 const WIN_LINES = [
   [0, 1, 2],
@@ -19,7 +20,42 @@ type TTEntry = {
   score: number;
 };
 
-export function chooseAiMove(state: GameState): Move {
+export function chooseAiMove(state: GameState, difficulty: TrainingDifficulty = "hardcore"): Move {
+  if (difficulty === "normal") {
+    return chooseNormalMove(state);
+  }
+  return chooseHardcoreMove(state);
+}
+
+function chooseNormalMove(state: GameState): Move {
+  const legalMoves = getLegalMoves(state);
+  if (legalMoves.length === 0) {
+    throw new Error("Brak legalnych ruchów dla AI.");
+  }
+  const aiPlayer = state.currentPlayer;
+  const opponent = getOpponent(aiPlayer);
+
+  // 1) Wygrana lokalna (mała plansza).
+  const localWin = legalMoves.find((move) => winsSmallBoard(state, move, aiPlayer));
+  if (localWin) return localWin;
+
+  // 2) Blok przeciwnika lokalnie.
+  const block = legalMoves.find((move) => blocksOpponentLocalWin(state, move, opponent));
+  if (block) return block;
+
+  // 3) Środek małej planszy.
+  const center = legalMoves.find((move) => move.cellIndex === 4);
+  if (center) return center;
+
+  // 4) Rogi.
+  const corner = legalMoves.find((move) => [0, 2, 6, 8].includes(move.cellIndex));
+  if (corner) return corner;
+
+  // 5) Fallback.
+  return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+}
+
+function chooseHardcoreMove(state: GameState): Move {
   const legalMoves = getLegalMoves(state);
   if (legalMoves.length === 0) {
     throw new Error("Brak legalnych ruchów dla AI.");
@@ -288,4 +324,21 @@ function getStateKey(state: GameState): string {
   const winners = state.smallBoardWinners.map((v) => v ?? "_").join("");
   const boards = state.boards.map((b) => b.map((c) => c ?? "_").join("")).join("|");
   return `${state.currentPlayer}|${state.activeBoard ?? "_"}|${winners}|${boards}`;
+}
+
+function winsSmallBoard(state: GameState, move: Move, player: PlayerSymbol): boolean {
+  if (move.player !== player) return false;
+  const next = applyMove(state, move);
+  return next.smallBoardWinners[move.boardIndex] === player;
+}
+
+function blocksOpponentLocalWin(state: GameState, move: Move, opponent: PlayerSymbol): boolean {
+  const board = state.boards[move.boardIndex];
+  const simulatedBoard = [...board];
+  simulatedBoard[move.cellIndex] = opponent;
+  return wouldWinSmallBoard(simulatedBoard, opponent);
+}
+
+function wouldWinSmallBoard(board: Array<PlayerSymbol | null>, player: PlayerSymbol): boolean {
+  return WIN_LINES.some(([a, b, c]) => board[a] === player && board[b] === player && board[c] === player);
 }

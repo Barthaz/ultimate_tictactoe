@@ -16,7 +16,7 @@ export function Lobby(props: LobbyProps) {
         Tryb:
         <select value={props.mode} onChange={(e) => props.onModeChange(e.target.value as GameMode)}>
           <option value="local">Lokalna</option>
-          <option value="ai">Kontra AI</option>
+          <option value="training">Trening (kontra AI)</option>
           <option value="online">Online</option>
         </select>
       </label>

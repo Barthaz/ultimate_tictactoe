@@ -11,6 +11,7 @@ import type {
   ServerInfoEvent,
   SessionJoinedEvent,
   SessionStateEvent,
+  TrainingDifficulty,
 } from "@uttt/shared";
 
 const serverUrl = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
@@ -28,12 +29,14 @@ type GameSocketState = {
   mode: GameMode;
   joinCode: string;
   mySymbol: PlayerSymbol;
+  trainingDifficulty: TrainingDifficulty;
   session: GameSession | null;
   statusMessage: string;
   protocolVersion: string | null;
   isServerReady: boolean;
   canPlay: boolean;
   setMode: (mode: GameMode) => void;
+  setTrainingDifficulty: (difficulty: TrainingDifficulty) => void;
   setJoinCode: (code: string) => void;
   createSession: () => void;
   joinSession: () => void;
@@ -47,6 +50,7 @@ export function useGameSocket(): GameSocketState {
   const [mode, setMode] = useState<GameMode>("local");
   const [joinCode, setJoinCode] = useState("");
   const [mySymbol, setMySymbol] = useState<PlayerSymbol>("X");
+  const [trainingDifficulty, setTrainingDifficulty] = useState<TrainingDifficulty>("normal");
   const [statusMessage, setStatusMessage] = useState("Wybierz tryb i rozpocznij grę.");
   const [protocolVersion, setProtocolVersion] = useState<string | null>(null);
   const [isServerReady, setIsServerReady] = useState(false);
@@ -88,7 +92,13 @@ export function useGameSocket(): GameSocketState {
 
   const createSession = () => {
     if (!socket) return;
-    socket.emit(SOCKET_EVENTS.SESSION_CREATE, { mode }, (ack: CreateSessionAck) => {
+    socket.emit(
+      SOCKET_EVENTS.SESSION_CREATE,
+      {
+        mode,
+        ...(mode === "training" ? { trainingDifficulty } : {}),
+      },
+      (ack: CreateSessionAck) => {
       if (!ack.ok) {
         setStatusMessage(ack.message ?? "Nie udało się utworzyć sesji.");
         return;
@@ -97,10 +107,12 @@ export function useGameSocket(): GameSocketState {
       setStatusMessage(`Sesja ${ack.sessionId} gotowa.`);
       trackEvent("start_game", {
         mode,
+        training_difficulty: mode === "training" ? trainingDifficulty : undefined,
         session_id: ack.sessionId,
         player_symbol: ack.playerSymbol,
       });
-    });
+      }
+    );
   };
 
   const joinSession = () => {
@@ -140,12 +152,14 @@ export function useGameSocket(): GameSocketState {
     mode,
     joinCode,
     mySymbol,
+    trainingDifficulty,
     session,
     statusMessage,
     protocolVersion,
     isServerReady,
     canPlay,
     setMode,
+    setTrainingDifficulty,
     setJoinCode,
     createSession,
     joinSession,

@@ -9,7 +9,8 @@ export declare const SOCKET_EVENTS: {
     readonly GAME_ERROR: "game:error";
 };
 export type PlayerSymbol = "X" | "O";
-export type GameMode = "local" | "ai" | "online";
+export type TrainingDifficulty = "normal" | "hardcore";
+export type GameMode = "local" | "training" | "online";
 export type CellValue = PlayerSymbol | null;
 export type SmallBoardWinner = PlayerSymbol | "D" | null;
 export type GameWinner = PlayerSymbol | "D" | null;
@@ -31,6 +32,7 @@ export type GameState = {
 export type GameSession = {
     id: string;
     mode: GameMode;
+    trainingDifficulty?: TrainingDifficulty | null;
     game: GameState;
     players: {
         X: string | null;
@@ -47,6 +49,7 @@ export type AckError = {
 };
 export type CreateSessionPayload = {
     mode: GameMode;
+    trainingDifficulty?: TrainingDifficulty;
 };
 export type CreateSessionAck = AckOk<{
     sessionId: string;
